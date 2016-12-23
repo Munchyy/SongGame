@@ -14,69 +14,87 @@ namespace SongGame
     {
         private int gameScore;
         private List<Tuple<string, string>> songList;
+        List<Button> buttonList;
+        private List<QuizQuestion> questions;
+        private Random rand;
 
         public Form1()
         {
             InitializeComponent();
+            //get answerButtons in a list to access them easily
+            buttonList = new List<Button>();
+            buttonList.Add(answerButton1);
+            buttonList.Add(answerButton2);
+            buttonList.Add(answerButton3);
+            buttonList.Add(answerButton4);
+            buttonList.Add(answerButton5);
+            buttonList.Add(answerButton6);
+
+            //set size and height for each button
+            foreach(Button button in buttonList)
+            {
+                button.Height = (answerLayoutPanel.Height / 2) - 10;
+                button.Width = (answerLayoutPanel.Width / 3) - 10;
+            }
+
+            correctLabel.Text = "";
+
+            //make random
+            rand = new Random();
+            //init game score label
             gameScore = 0;
+            scoreLabel.Text = gameScore.ToString();
+
+            //fetch the chart music info
             ChartSongFinder.Radio1ChartSongFinder songFinder = new ChartSongFinder.Radio1ChartSongFinder();
             songList = songFinder.Top40List;
-            RunQuiz();
-            RestartGame();
+
+            //get the first round of 40 questions
+            questions = MakeQuiz();
+            SetQuiz(questions.ElementAt(0));
 
         }
 
-        private void RunQuiz()
+        ///get a QuizQuestion for each entry,
+        ///this is the answer, the question and a list of false answers
+        ///that can not also be a correct answer
+        private List<QuizQuestion> MakeQuiz()
         {
-            List<string> falseAnswers = new List<string>();
-            Tuple<string, string> answer = null;
-            List<int> usedAnswers = new List<int>();
-            while (falseAnswers != null)
+            
+            List<QuizQuestion> questions = new List<QuizQuestion>();
+            ShuffleSongs();
+            foreach(Tuple<string,string> tuple in songList)
             {
-                answer = MakeQuiz(songList,usedAnswers, out falseAnswers);
-
-                //logic to display question/answers and keep score
-                
+                questions.Add(new QuizQuestion(tuple, songList, rand));
             }
-            RestartGame();
+            return questions;
         }
 
         private void ShowScoreScreen()
         {
-            MessageBox.Show(String.Format("Game is finished, your score is: {0}", gameScore), "Game Over");
+            if(gameScore == 40)
+                MessageBox.Show("You got 100% Right!", "Game Over");
+            else
+                MessageBox.Show(String.Format("Game is finished, your score is: {0}/40", gameScore), "Game Over");
         }
 
-        //Takes a list of 40 songs, returns the answer tuple and an out parameter
-        //of the false answers
-        private Tuple<string,string> MakeQuiz(List<Tuple<string,string>> songList, List<int> usedAnswers, out List<string> falseAnswers)
+        private void SetQuiz(QuizQuestion question)
         {
-            if(usedAnswers.Count == 40)
-            {
-                falseAnswers = null;
-                return new Tuple<string, string>(null, null);
-            }
-            falseAnswers = new List<string>();
-            Random rnd = new Random();
-            int randInt = rnd.Next(0, 39);
-            while(usedAnswers.Contains(randInt))
-            {
-                randInt = rnd.Next(0, 39);
-            }
-            Tuple<string, string> answerTuple = songList.ElementAt(randInt);
+            List<string> possibleAnswers = question.FalseAnswers;
+            int randInt = new Random().Next(6);
+            possibleAnswers.Insert(randInt, question.Answer);
+            int index = 0;
 
-            for(int i = 0; i < 5; i++)
+            //set the answers to the buttons
+            foreach(Button but in buttonList)
             {
-                int rInt = rnd.Next(0, 39);
-                while(rInt == randInt)
-                {
-                    rInt = rnd.Next(0, 39);
-                }
-                falseAnswers.Add(songList.ElementAt(rInt).Item1);
+                but.Text = possibleAnswers.ElementAt(index);
+                index++;
             }
-
-            return answerTuple;
+            songNameLabel.Text = question.Question;
         }
 
+        
         private void restartButton_Click(object sender, EventArgs e)
         {
             RestartGame();
@@ -86,7 +104,42 @@ namespace SongGame
         {
             ShowScoreScreen();
             gameScore = 0;
-            RunQuiz();
+            scoreLabel.Text = gameScore.ToString();
+            questions = MakeQuiz();
+            SetQuiz(questions.ElementAt(0));
         }
+
+        private void answerButton_Click(object sender, EventArgs e)
+        {
+            Button clickedButton = (Button)sender;
+            if (questions.ElementAt(0).CheckAnswer(clickedButton.Text))
+            {
+                gameScore++;
+                scoreLabel.Text = gameScore.ToString();
+                correctLabel.Text = "Correct";
+            }
+            else
+            {
+                correctLabel.Text = "Incorrect";
+                MessageBox.Show(String.Format("Incorrect. The answer was: {0}", questions.ElementAt(0).Answer),"Wrong Answer");
+            }
+            questions.RemoveAt(0);
+            if (questions.Count > 0)
+                SetQuiz(questions.ElementAt(0));
+            else RestartGame();
+        }
+
+        private void ShuffleSongs()
+        {
+            int n = songList.Count;
+            while (n > 1)
+            {
+                n--;
+                int k = rand.Next(n + 1);
+                Tuple<string,string> value = songList[k];
+                songList[k] = songList[n];
+                songList[n] = value;
+            }
+        } 
     }
 }
